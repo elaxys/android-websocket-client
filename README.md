@@ -1,5 +1,5 @@
-Android WebSocket Client with Test Application and Server
-=========================================================
+Android WebSocket Client
+========================
 
 Overview
 --------
