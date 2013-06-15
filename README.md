@@ -20,6 +20,7 @@ Installation of the test application
 ------------------------------------
 
 To install the test application using Eclipse 
+
 1. Import the WebSocket client library project using
   ***File/Import/Android/Existing Android Code into Workspace***.
   The default name of this project is **websocket_client**.
@@ -34,7 +35,7 @@ If you use command line tools the test application can be built
 using ***ant debug*** command inside the application directory
 
 
-More documentation comming soon...
+More documentation coming soon...
 ----------------------------------
 
 
