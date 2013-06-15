@@ -197,8 +197,10 @@ public class Client {
     	int		mHeadsize;
     	byte[]	mFrame;
     }
+  
+    /** Client Version String */
+    public static final String VERSION = "0.9.0";
     
-    /** Status Codes */
     /** Client is stopped */
     public static final int ST_STOPPED      = 0;
     /** Client is started by not connected yet */
