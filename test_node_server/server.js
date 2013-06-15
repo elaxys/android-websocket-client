@@ -2,7 +2,10 @@
 "use scrict"
 
 // Require standard modules
-var http = require('http');
+var fs    = require('fs');
+var http  = require('http');
+var https = require('https');
+var util  = require('util');
 
 // Require external modules
 var opt  = require('optimist');
@@ -14,23 +17,52 @@ var DEF_SERVER_PORT = 10000;
 
 function main() {
 
+
     // Process command line options
-    var argv = opt.usage("Test Server" + '\n' + 'usage: $0 options')
+    var args = opt.usage("Test Server" + '\n' + 'usage: $0 options')
+        .options('h', {
+            describe: 'Show help text',
+            alias:    'help'
+        })
         .options('p', {
             describe: 'Port number to listen to',
-            default:  DEF_SERVER_PORT
+            alias:    'port',
+            default:   DEF_SERVER_PORT
         })
-        .argv;
+        .options('s', {
+            describe: 'Use SSL',
+            alias:    'ssl',
+        });
+    var argv = args.argv;
+    if (argv.h) {
+        args.showHelp();
+        process.exit(0);
+    }
 
+    var msg_ssl = ''; 
+    // Creates HTTPS server
+    if (argv.ssl) {
+        var options = {
+            key:  fs.readFileSync('cert/privkey.pem'),
+            cert: fs.readFileSync('cert/cacert.pem')
+        };
+        var hServer = https.createServer(options, function(request, response) {
+            response.writeHead(404);
+            response.end();
+        });
+        msg_ssl = "(USING SSL)"
+    }
     // Creates HTTP server
-    var hServer = http.createServer(function(request, response) {
-        console.log((new Date()) + ' Received request for ' + request.url);
-        response.writeHead(404);
-        response.end();
-    });
-    // Starts HTTP server
+    else {
+        var hServer = http.createServer(function(request, response) {
+            log('Received request for: ' + request.url);
+            response.writeHead(404);
+            response.end();
+        });
+    }   
+    // Starts server
     hServer.listen(argv.p, function() {
-        console.log((new Date()) + ' Server is listening on port ' + argv.p);
+        log('Server is listening on port: %d %s', argv.p, msg_ssl);
     });
 
     // Creates WebSocket server associated with HTTP server
@@ -50,41 +82,55 @@ function main() {
     wsServer.on('request', function(request) {
         if (!originIsAllowed(request.origin)) {
           request.reject();
-          console.log((new Date()) + ' Connection from origin ' + request.origin + ' rejected.');
+          log('Connection from origin: %s rejected', request.origin);
           return;
         }
 
         var connection = request.accept(null, request.origin);
-        console.log((new Date()) + ' Connection accepted.');
+        log('Connection accepted.');
 
         // Process MESSAGES
         connection.on('message', function(message) {
             if (message.type === 'utf8') {
-                console.log('Received TEXT Message of ' + message.utf8Data.length + ' bytes');
+                log('Received TEXT Message of %d bytes',  message.utf8Data.length);
                 connection.sendUTF(message.utf8Data);
             }
             else if (message.type === 'binary') {
-                console.log('Received BINARY Message of ' + message.binaryData.length + ' bytes');
+                log('Received BINARY Message of  %d bytes', message.binaryData.length);
                 connection.sendBytes(message.binaryData);
             }
         });
 
         // Proces FRAMES
         connection.on("frame", function(frame) {
-            console.log('Received FRAME:', frame.opcode, frame.length);
+            log('Received FRAME with OPCODE: %d LENGTH: %d:', frame.opcode, frame.length);
         });
 
         // Process ERRORS
         connection.on('error', function(error) {
-            console.log((new Date()) + ' Error: ' + error);
+            log('Error: %s', error);
         });
 
         // Process CLOSE
         connection.on('close', function(reasonCode, description) {
-            console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected. Error: ' + description );
+            log('Peer: %s disconnected. Error: %s ', connection.remoteAddress,  description);
         });
     });
 }
+
+
+function log(fmt) {
+    var args;
+    var pos;
+
+    args = [];
+    for (pos = 0; pos < arguments.length; pos++) {
+        args.push(arguments[pos]);
+    }
+    msg = util.format.apply(null, args);
+    console.log((new Date()) + " " + msg);
+}
+
 
 
 function originIsAllowed(origin) {

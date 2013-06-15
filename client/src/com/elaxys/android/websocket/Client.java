@@ -7,6 +7,8 @@ import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.security.KeyManagementException;
 import java.security.MessageDigest;
@@ -19,6 +21,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 import org.apache.http.Header;
@@ -53,6 +56,8 @@ public class Client {
         public int     mMaxRxSize;
         /** True to respond to PINGS, false sends the PING frame to the application */
         public boolean mRespondPing;
+        /** Checks server certificate on SSL connection */
+        public boolean mServerCert;
         /** Log tag used for debugging. If null no log is generated */
         public String mLogTag;
         /** Default constructor */
@@ -63,6 +68,7 @@ public class Client {
         	mRetryInterval	= 1000;
         	mMaxRxSize		= 128*1024;
         	mRespondPing	= true;
+        	mServerCert     = false;
         	mLogTag	        = "WSCLIENT";
         }
         /** Copy constructor */
@@ -73,24 +79,28 @@ public class Client {
         	mRetryInterval	= config.mRetryInterval;
         	mMaxRxSize		= config.mMaxRxSize;
         	mRespondPing	= config.mRespondPing;
+        	mServerCert     = config.mServerCert;
         	mLogTag	        = config.mLogTag;
         }
     }
     
     /**
-     * Interface to listen for generated events
+     * Interface to listen to generated events
      */
     public interface Listener {
     	/**
-    	 * Called when reception thread is started to try to
-    	 * connect with the server.
+    	 * Called when reception thread is started.
     	 */
     	public void onClientStart();
+    	/**
+    	 * Called when reception thread is about to connect with the server.
+    	 */
+    	public void onClientConnect();
     	/**
     	 * Called when connection and handshake with the server
     	 * completed successfully.
     	 */
-        public void onClientConnect();
+        public void onClientConnected();
         /**
          * Called when any error occurs, including the closing of
          * the connection.
@@ -280,10 +290,11 @@ public class Client {
     /** Event codes sent to Handler */
     private static final int EV_START		= 1;
     private static final int EV_CONNECT		= 2;
-    private static final int EV_RECV		= 3;
-    private static final int EV_SENT		= 4;
-    private static final int EV_ERROR		= 5;
-    private static final int EV_STOP		= 6;
+    private static final int EV_CONNECTED	= 3;
+    private static final int EV_RECV		= 4;
+    private static final int EV_SENT		= 5;
+    private static final int EV_ERROR		= 6;
+    private static final int EV_STOP		= 7;
     /** Fragmentation */
     private static final int FRAG_NONE		= 0;
     private static final int FRAG_FIRST		= 1;
@@ -299,8 +310,11 @@ public class Client {
     	1,				// 0x09 - OP_PING
     	1,				// 0x0A - OP_PONG
     };
+    /** Handshake related */
+    private static final int HANDSHAKE_TIMEOUT = 5000;
+    private static final int MAX_HEADER_LINE   = 512;
+ 
     
-  
     /**
      * Constructor
      * @param config Reference to configuration object
@@ -555,19 +569,24 @@ public class Client {
      * Stops reception thread
      */
     private void stopRxThread() {
-    	
         mRxRun = false;
+        if (mRxThread == null) {
+        	return;
+        }
         // Interrupt reception thread (when sleep)
         // Closes socket to force thread IO exception
-        if (mRxThread != null) {
-        	mRxThread.interrupt();
-            try {
-                if (mSocket != null) {
-                    mSocket.shutdownInput();
-                    mSocket.shutdownOutput();
-                }
-            } catch (IOException e) {}
-        }
+    	mRxThread.interrupt();
+        try {
+            if (mSocket != null) {
+            	if (!mSSL) {
+	                mSocket.shutdownInput();
+	                mSocket.shutdownOutput();
+            	}
+            	else {
+            		mSocket.close();
+            	}
+            }
+        } catch (IOException e) {}
     }
 
     
@@ -594,12 +613,12 @@ public class Client {
         
         @Override
         public void run() {
-            mLog.debug("RxThread started");
+            mStatus = ST_STARTED;
             long delay   = 0;
+            mLog.debug("RxThread started");
+            sendEvent(EV_START, null);
             // Main Read Loop: try to connect and read frames
             while (mRxRun) {
-                mStatus = ST_STARTED;
-                sendEvent(EV_START, null);
                 // Delay before trying to connect. The first time the delay is 0.
                 try {
                     Thread.sleep(delay);
@@ -607,6 +626,7 @@ public class Client {
                     break;
                 }
                 delay = mConfig.mRetryInterval;
+                sendEvent(EV_CONNECT, null);
                 // Try to connect with server and if error, retry.
                 if (!connect()) {
                     continue;
@@ -621,7 +641,7 @@ public class Client {
                     mTxThread.start();
                 }
                 mStatus = ST_CONNECTED;
-                sendEvent(EV_CONNECT, null);
+                sendEvent(EV_CONNECTED, null);
                 // Process received frames and returns on any error.
                 processFrames();
                 // Stops transmission thread
@@ -693,10 +713,10 @@ public class Client {
          */
         private boolean doHandshake() {
         	StringBuilder req;
-        	String secret;
+        	String seckey;
         
         	mLog.debug("Sending handshake request");
-        	secret = createSecret();
+        	seckey = createSecKey();
         	// Sends HTTP upgrade request
         	req = new StringBuilder();
             req.append("GET " + mPath + " HTTP/1.1\r\n");
@@ -704,7 +724,7 @@ public class Client {
             req.append("Connection: Upgrade\r\n");
             req.append("Host: " + mHost + "\r\n");
             req.append("Origin: " + mOrigin + "\r\n");
-            req.append("Sec-WebSocket-Key: " + secret + "\r\n");
+            req.append("Sec-WebSocket-Key: " + seckey + "\r\n");
             req.append("Sec-WebSocket-Version: 13\r\n");
             req.append("\r\n");
             byte[] data = req.toString().getBytes();
@@ -714,13 +734,19 @@ public class Client {
 				sendEvent(EV_ERROR, e.getMessage());
 				return false;
 			}
+            // Sets socket timeout to wait for handshake
+            try {
+				mSocket.setSoTimeout(HANDSHAKE_TIMEOUT);
+			} catch (SocketException e) {
+				sendEvent(EV_ERROR, e.getMessage());
+				return false;
+			}
             // Reads response lines from server
             String[] Responses = new String[10];
             int nlines = 0;
             while (true) {
             	String line = readLine(mSocketIn);
             	if (line == null) {
-            		sendEvent(EV_ERROR, "Connection Closed");
             		return false;
             	}
             	// Empty line is response terminator.
@@ -748,7 +774,7 @@ public class Client {
             	Header header = BasicLineParser.parseHeader(Responses[line], new BasicLineParser());
             	if (header.getName().equals("Sec-WebSocket-Accept")) {
             		String accept = header.getValue();
-            		String calc = calcAccept(secret);
+            		String calc = calcAccept(seckey);
             		if (!accept.equals(calc)) {
             			sendEvent(EV_ERROR, "Server accept key is invalid");
             			return false;
@@ -760,6 +786,13 @@ public class Client {
 				sendEvent(EV_ERROR, "Server accept header not found");
             	return false;
             }
+            // Remove socket timeout
+            try {
+				mSocket.setSoTimeout(0);
+			} catch (SocketException e) {
+       			sendEvent(EV_ERROR, e.getMessage());
+      			return false;
+			}
 			mLog.debug("Handshake OK");
             return true;
         }
@@ -1137,8 +1170,8 @@ public class Client {
    
     
     /**
-     * Creates an SSL Context which doesn't check the server certificate,
-     * used when we are using a self-signed certificate in the server.
+     * Creates an SSL Context which could check or not the server certificate,
+     * depending on configuration option.
      * @return SSLContext to use or null if error
      */
     private SSLContext createSSLContext() {
@@ -1149,17 +1182,24 @@ public class Client {
         	sendEvent(EV_ERROR, e.getMessage());
         	return null;
         }
-        try {
-            context.init(null, new X509TrustManager[]{new X509TrustManager()
-                {
-                    public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {}
+        TrustManager[] trustManagers;
+        if (mConfig.mServerCert) {
+        	trustManagers = new TrustManager[0];
+        }
+        else {
+        	trustManagers = new X509TrustManager[]{
+       			new X509TrustManager() {
+       				public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {}
                     public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {}
-                    public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }}
-                }, new SecureRandom());
-        } catch (KeyManagementException e) {
+                    public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+                }
+        	};
+    	}
+        try {
+			context.init(null, trustManagers, new SecureRandom());
+		} catch (KeyManagementException e) {
         	sendEvent(EV_ERROR, e.getMessage());
-            return null;
-        }   
+		}
         return context;
     }
    
@@ -1180,10 +1220,10 @@ public class Client {
    
    
     /**
-     * Creates secret string for handshake
+     * Creates accept key string for handshake
      * @return String with secret BASE64 encoded
      */
-    private String createSecret() {
+    private String createSecKey() {
     	
         byte[] secret = new byte[16];
         mRandom.nextBytes(secret);
@@ -1272,15 +1312,21 @@ public class Client {
      */
     private String readLine(InputStream stream) {
   		int readChar;
+  		int len = 0;
         StringBuilder line = new StringBuilder();
     	
     	while (true) {
     		try {
 				readChar = stream.read();
+    		} catch (SocketTimeoutException e) {
+          		sendEvent(EV_ERROR, "Reception Timeout");
+				return null;
 			} catch (IOException e) {
+          		sendEvent(EV_ERROR, e.getMessage());
 				return null;
 			}
     		if (readChar == -1) {
+          		sendEvent(EV_ERROR, "Connection Closed");
     			return null;
     		}
     		if (readChar == '\r') {
@@ -1289,7 +1335,12 @@ public class Client {
     		if (readChar == '\n') {
     			return line.toString();
     		}
+    		if (len >= MAX_HEADER_LINE) {
+          		sendEvent(EV_ERROR, "Max header line recv");
+    			return null;
+    		}
     		line.append((char)readChar);
+    		len++;
         }
     }
 
@@ -1327,6 +1378,9 @@ public class Client {
     			break;
     		case EV_CONNECT:
     			mListener.onClientConnect();
+    			break;
+    		case EV_CONNECTED:
+    			mListener.onClientConnected();
     			break;
     		case EV_RECV:
     			RxMsg rx = (RxMsg)msg.obj;

@@ -366,14 +366,21 @@ public class MainActivity extends ListActivity implements
 		
 	}
 
+	
 	@Override
 	public void onClientStart() {
 		mStatusText.setText("STARTED");
 	}
-
+	
 	
 	@Override
 	public void onClientConnect() {
+		mStatusText.setText("CONNECTING...");
+	}
+
+	
+	@Override
+	public void onClientConnected() {
 		mStatusText.setText("CONNECTED");
 		updateStatus();
 	}
@@ -416,7 +423,6 @@ public class MainActivity extends ListActivity implements
 	
 	@Override
 	public void onClientRecv(int type, byte[] data) {
-		logDebug("onMessage: %d -> %s", type, data);
 		updateStatus();
 		if (mTest.equals("ping")) {
 			if (type == Client.F_PONG) {
@@ -457,7 +463,6 @@ public class MainActivity extends ListActivity implements
 	
 	@Override
 	public void onClientSent(int fid) {
-		logDebug("onSent: %d", fid);
 		updateStatus();
 	}
 	
