@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+    
+    <PreferenceCategory
+        android:title="Client Configuration">
+        <EditTextPreference
+            android:key="server_uri"
+            android:title="Server URI"
+            android:summary=""
+            android:singleLine="true"
+            android:defaultValue="ws://192.168.1.2:10000/ws1"
+        />
+        <EditTextPreference
+            android:key="conn_timeout"
+            android:title="Connection Timeout (ms)"
+            android:summary=""
+            android:singleLine="true"
+            android:defaultValue="5000"
+            android:inputType="number"    
+            android:maxLength="6"    
+        />
+        <EditTextPreference
+            android:key="retry_interval"
+            android:title="Retry Interval (ms)"
+            android:summary=""
+            android:singleLine="true"
+            android:defaultValue="1000"
+            android:inputType="number"    
+            android:maxLength="6"    
+        />
+        <EditTextPreference
+            android:key="max_rxsize"
+            android:title="Max Receive Size (KB)"
+            android:summary=""
+            android:singleLine="true"
+            android:defaultValue="256"
+            android:inputType="number"    
+            android:maxLength="6"    
+        />
+        <CheckBoxPreference 
+            android:key="respond_ping"
+            android:title="Respond to Pings"
+            android:defaultValue="false"
+        />
+    </PreferenceCategory>
+    
+    <PreferenceCategory
+        android:title="Test Parameters">
+        <EditTextPreference
+            android:key="test_count"
+            android:title="Test Count"
+            android:summary="Number of tests"
+            android:singleLine="true"
+            android:defaultValue="10"
+            android:inputType="number"    
+            android:maxLength="6"    
+        />
+        <EditTextPreference
+            android:key="test_payload_size"
+            android:title="Max Payload Size (KB)"
+            android:summary="Number of tests"
+            android:singleLine="true"
+            android:defaultValue="128"
+            android:inputType="number"    
+            android:maxLength="6"    
+        />
+    </PreferenceCategory>
+
+</PreferenceScreen>

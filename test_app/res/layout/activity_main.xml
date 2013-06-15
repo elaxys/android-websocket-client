@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+        
+    <!-- STATUS PANEL -->
+	<LinearLayout
+        android:orientation="vertical"
+	    android:layout_width="match_parent"
+	    android:layout_height="wrap_content"
+	    android:gravity="center|center_vertical"
+        android:background="#ff404040"
+        android:paddingTop="4dip"
+        android:paddingBottom="4dip">
+        <!-- MAIN STATUS TEXT -->
+	    <TextView
+	        android:id="@+id/main_status_text"
+	        android:layout_width="match_parent"
+	        android:layout_height="wrap_content"
+		    android:gravity="center|center_vertical"
+	        android:layout_marginLeft="6dip"
+	        android:textAppearance="?android:attr/textAppearanceLarge" />
+        <!-- STATUS DETAIL TEXT -->
+	    <TextView
+	        android:id="@+id/main_status_detail"
+	        android:layout_width="match_parent"
+	        android:layout_height="wrap_content"
+	        android:layout_marginLeft="2dip"
+	        android:layout_marginRight="2dip"
+	        android:layout_marginTop="4sp"
+	        android:textAppearance="?android:attr/textAppearanceSmall" />
+    </LinearLayout>
+    
+	<ListView android:id="@android:id/list"
+    	android:layout_width="match_parent" 
+        android:layout_height="match_parent"
+        android:fastScrollEnabled="true"/>
+
+</LinearLayout>
