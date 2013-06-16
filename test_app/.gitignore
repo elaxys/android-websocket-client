@@ -1,5 +1,7 @@
 bin/
 gen/
 .classpath
+local.properties
+
 
 
