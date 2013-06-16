@@ -51,12 +51,19 @@ public class MainActivity extends ListActivity implements
 			"ABCDEFGHIJKLMNOPQRXTUVWXZabcdefghijklmnopqrstuvwxyz" +
 			"ÁÉÍÓÚáéíóúÄËÏÖÚÃẼĨÕŨãẽĩõũÀÈÌÒÙàèìòù" + 
 			"\u03C0";
+	static final int T_NONE				= 0;
+	static final int T_PING				= 1;
+	static final int T_STRING			= 2;
+	static final int T_BINARY			= 3;
+	static final int T_STRING_FRAG		= 4;
+	static final int T_BINARY_FRAG		= 5;
+	
     private TextView    	mStatusText;
     private TextView    	mStatusDetail;
 	private ArrayAdapter<String> mAdapter;
 	private boolean			mConfigChanged;
 	private Client			mSocket;
-	private String			mTest;
+	private int 			mTest;
 	private int				mTestCount;
 	private int				mTestPayloadSize;
 	private int				mTestCounter;
@@ -76,19 +83,29 @@ public class MainActivity extends ListActivity implements
 		// Creates ArrayAdapter with the menu options
 		mAdapter = new ArrayAdapter<String>(this, R.layout.menu_item, MENU);
 		setListAdapter(mAdapter);
-	
+		
+		PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
         PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(this);     
 		mSocket = null;
 	}
 	
 	
 	@Override
+	protected void onDestroy() {
+		super.onDestroy();
+		if (mSocket != null) {
+			mSocket.stop();
+		}
+	}
+
+
+	@Override
 	protected void onListItemClick(ListView l, View v, int position, long id) {
 		super.onListItemClick(l, v, position, id);
 		Intent intent;
 		switch ((int)id)  {
 		case M_START:
-			mTest = "";
+			mTest = T_NONE;
 			if (mSocket == null || mConfigChanged) {
 				mSocket = createClient();
 				if (mSocket == null) {
@@ -108,31 +125,31 @@ public class MainActivity extends ListActivity implements
 			mSocket.stop();
 			break;
 		case M_PING_TEST:
-			if (mSocket == null) {
+			if (mSocket == null || mTest != T_NONE) {
 				break;
 			}
 			testPing();
 			break;
 		case M_STRING_TEST:
-			if (mSocket == null) {
+			if (mSocket == null || mTest != T_NONE) {
 				break;
 			}
 			testString();
 			break;
 		case M_BIN_TEST:
-			if (mSocket == null) {
+			if (mSocket == null || mTest != T_NONE) {
 				break;
 			}
 			testBinary();
 			break;
 		case M_STRING_FRAG_TEST:
-			if (mSocket == null) {
+			if (mSocket == null || mTest != T_NONE) {
 				break;
 			}
 			testStringFrag();
 			break;
 		case M_BINARY_FRAG_TEST:
-			if (mSocket == null) {
+			if (mSocket == null || mTest != T_NONE) {
 				break;
 			}
 			testBinaryFrag();
@@ -170,6 +187,7 @@ public class MainActivity extends ListActivity implements
 		config.mRetryInterval = PrefsActivity.getRetryInterval(this);
 		config.mMaxRxSize	  = PrefsActivity.getMaxRxSize(this);
 		config.mRespondPing   = PrefsActivity.getRespondPing(this);
+		config.mServerCert    = PrefsActivity.getServerCert(this);
 		config.mLogTag		  = "WSCLIENT";
 		try {
 			return new Client(config, this);
@@ -181,7 +199,7 @@ public class MainActivity extends ListActivity implements
 	
 	
 	private void testPing() {
-		mTest = "ping";
+		mTest = T_PING;
 		mTestCounter = 0;
 		nextPing();
 	}
@@ -189,6 +207,7 @@ public class MainActivity extends ListActivity implements
 	
 	private void nextPing() {
 		if (mTestCounter == mTestCount) {
+			mTest = T_NONE;
 			return;
 		}
 		mBytesSent = genBytes(125);
@@ -202,7 +221,7 @@ public class MainActivity extends ListActivity implements
 
 
 	private void testString() {
-		mTest = "string";
+		mTest = T_STRING;
 		mTestCounter = 0;
 		nextString();
 	}
@@ -210,6 +229,7 @@ public class MainActivity extends ListActivity implements
 
 	private void nextString() {
 		if (mTestCounter == mTestCount) {
+			mTest = T_NONE;
 			return;
 		}
 		mStringSent = genString(mTestPayloadSize);
@@ -224,7 +244,7 @@ public class MainActivity extends ListActivity implements
 	
 	
 	private void testBinary() {
-		mTest = "binary";
+		mTest = T_BINARY;
 		mTestCounter = 0;
 		nextBinary();
 	}
@@ -232,6 +252,7 @@ public class MainActivity extends ListActivity implements
 	
 	private void nextBinary() {
 		if (mTestCounter == mTestCount) {
+			mTest = T_NONE;
 			return;
 		}
 		mBytesSent = genBytes(mTestPayloadSize);
@@ -246,13 +267,14 @@ public class MainActivity extends ListActivity implements
 
 	
 	private void testStringFrag() {
-		mTest = "string_frag";
+		mTest = T_STRING_FRAG;
 		mTestCounter = 0;
 		nextStringFrag();
 	}
 	
 	private void nextStringFrag() {
 		if (mTestCounter == mTestCount) {
+			mTest = T_NONE;
 			return;
 		}
 		try {
@@ -281,13 +303,14 @@ public class MainActivity extends ListActivity implements
 	}
 	
 	private void testBinaryFrag() {
-		mTest = "binary_frag";
+		mTest = T_BINARY_FRAG;
 		mTestCounter = 0;
 		nextBinaryFrag();
 	}
 	
 	private void nextBinaryFrag() {
 		if (mTestCounter == mTestCount) {
+			mTest = T_NONE;
 			return;
 		}
 		try {
@@ -396,7 +419,7 @@ public class MainActivity extends ListActivity implements
 	@Override
 	public void onClientRecv(int type, String data) {
 		updateStatus();
-		if (mTest.equals("string")) {
+		if (mTest == T_STRING) {
 			if (type == Client.F_TEXT) {
 				if (!data.equals(mStringSent)) {
 					mStatusDetail.setText("Received Packet Different");
@@ -407,7 +430,7 @@ public class MainActivity extends ListActivity implements
 			}
 			return;
 		}
-		if (mTest.equals("string_frag")) {
+		if (mTest == T_STRING_FRAG) {
 			if (type == Client.F_TEXT) {
 				if (!data.equals(mStringSent)) {
 					mStatusDetail.setText("Received Packet Different");
@@ -424,7 +447,7 @@ public class MainActivity extends ListActivity implements
 	@Override
 	public void onClientRecv(int type, byte[] data) {
 		updateStatus();
-		if (mTest.equals("ping")) {
+		if (mTest == T_PING) {
 			if (type == Client.F_PONG) {
 				nextPing();
 				return;
@@ -433,7 +456,7 @@ public class MainActivity extends ListActivity implements
 			mSocket.stop();
 			return;
 		}
-		if (mTest.equals("binary")) {
+		if (mTest == T_BINARY) {
 			if (type == Client.F_BINARY) {
 				if (!Arrays.equals(data, mBytesSent)) {
 					mStatusDetail.setText("Received Packet Different");
@@ -446,7 +469,7 @@ public class MainActivity extends ListActivity implements
 			mSocket.stop();
 			return;
 		}
-		if (mTest.equals("binary_frag")) {
+		if (mTest == T_BINARY_FRAG) {
 			if (type == Client.F_BINARY) {
 				if (!Arrays.equals(data, mBytesSent)) {
 					mStatusDetail.setText("Received Packet Different");

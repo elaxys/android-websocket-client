@@ -42,6 +42,11 @@
             android:title="Respond to Pings"
             android:defaultValue="false"
         />
+        <CheckBoxPreference 
+            android:key="server_cert"
+            android:title="Check Server CERT"
+            android:defaultValue="true"
+        />
     </PreferenceCategory>
     
     <PreferenceCategory

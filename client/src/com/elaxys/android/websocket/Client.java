@@ -396,6 +396,7 @@ public class Client {
     	// The transmission thread will stop the client after this frame is sent.
     	// We do not wait to receive the server CLOSE frame response.
     	if (mStatus == ST_CONNECTED) {
+    		mRxRun = false;
     		sendFrame(OP_CLOSE, FRAG_NONE, new byte[0]);
     		return;
     	}

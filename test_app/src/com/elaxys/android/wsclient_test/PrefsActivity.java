@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.preference.EditTextPreference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
+import android.util.Log;
 
 public class PrefsActivity extends PreferenceActivity implements OnSharedPreferenceChangeListener {
 	
@@ -17,6 +18,7 @@ public class PrefsActivity extends PreferenceActivity implements OnSharedPrefere
     public static final String PREF_RETRY_INTERVAL 		= "retry_interval";
     public static final String PREF_MAX_RXSIZE     		= "max_rxsize";
     public static final String PREF_RESPOND_PING   		= "respond_ping";
+    public static final String PREF_SERVER_CERT   		= "server_cert";
     public static final String PREF_TEST_COUNT     		= "test_count";
     public static final String PREF_TEST_PAYLOAD_SIZE	= "test_payload_size";
 	
@@ -86,6 +88,11 @@ public class PrefsActivity extends PreferenceActivity implements OnSharedPrefere
     public static boolean getRespondPing(Activity ctx) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(ctx);
         return prefs.getBoolean(PREF_RESPOND_PING, false);
+    }
+    
+    public static boolean getServerCert(Activity ctx) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(ctx);
+        return prefs.getBoolean(PREF_SERVER_CERT, true);
     }
    
     public static int getTestCount(Activity ctx) {
