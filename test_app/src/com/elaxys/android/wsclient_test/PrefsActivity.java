@@ -12,18 +12,18 @@ import android.preference.PreferenceManager;
 import android.util.Log;
 
 public class PrefsActivity extends PreferenceActivity implements OnSharedPreferenceChangeListener {
-	
-    public static final String PREF_SERVER_URI     		= "server_uri";
-    public static final String PREF_CONN_TIMEOUT   		= "conn_timeout";
-    public static final String PREF_RETRY_INTERVAL 		= "retry_interval";
-    public static final String PREF_MAX_RXSIZE     		= "max_rxsize";
-    public static final String PREF_RESPOND_PING   		= "respond_ping";
-    public static final String PREF_SERVER_CERT   		= "server_cert";
-    public static final String PREF_TEST_COUNT     		= "test_count";
-    public static final String PREF_TEST_PAYLOAD_SIZE	= "test_payload_size";
-	
+    
+    public static final String PREF_SERVER_URI          = "server_uri";
+    public static final String PREF_CONN_TIMEOUT        = "conn_timeout";
+    public static final String PREF_RETRY_INTERVAL      = "retry_interval";
+    public static final String PREF_MAX_RXSIZE          = "max_rxsize";
+    public static final String PREF_RESPOND_PING        = "respond_ping";
+    public static final String PREF_SERVER_CERT         = "server_cert";
+    public static final String PREF_TEST_COUNT          = "test_count";
+    public static final String PREF_TEST_PAYLOAD_SIZE   = "test_payload_size";
+    
     @SuppressWarnings("deprecation")
-	@Override
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         addPreferencesFromResource(R.xml.preferences);
@@ -32,39 +32,39 @@ public class PrefsActivity extends PreferenceActivity implements OnSharedPrefere
     }
 
     
-	@Override
-	public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-		updateSummary();
-	}
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        updateSummary();
+    }
 
-	
+    
     @SuppressWarnings("deprecation")
-	private void updateSummary() {
-    	EditTextPreference prefText;
-    	
-		prefText = (EditTextPreference)findPreference(PREF_SERVER_URI);
-		prefText.setSummary(getServerURI(this));
-		
-		prefText = (EditTextPreference)findPreference(PREF_CONN_TIMEOUT);
-		prefText.setSummary(Integer.toString(getConnTimeout(this)));
-    	
-		prefText = (EditTextPreference)findPreference(PREF_RETRY_INTERVAL);
-		prefText.setSummary(Integer.toString(getRetryInterval(this)));
-		
-		prefText = (EditTextPreference)findPreference(PREF_MAX_RXSIZE);
-		prefText.setSummary(Integer.toString(getMaxRxSize(this)/1024));
-    	
-		prefText = (EditTextPreference)findPreference(PREF_TEST_COUNT);
-		prefText.setSummary(Integer.toString(getTestCount(this)));
-		
-		prefText = (EditTextPreference)findPreference(PREF_TEST_PAYLOAD_SIZE);
-		prefText.setSummary(Integer.toString(getTestPayloadSize(this)/1024));
+    private void updateSummary() {
+        EditTextPreference prefText;
+        
+        prefText = (EditTextPreference)findPreference(PREF_SERVER_URI);
+        prefText.setSummary(getServerURI(this));
+        
+        prefText = (EditTextPreference)findPreference(PREF_CONN_TIMEOUT);
+        prefText.setSummary(Integer.toString(getConnTimeout(this)));
+        
+        prefText = (EditTextPreference)findPreference(PREF_RETRY_INTERVAL);
+        prefText.setSummary(Integer.toString(getRetryInterval(this)));
+        
+        prefText = (EditTextPreference)findPreference(PREF_MAX_RXSIZE);
+        prefText.setSummary(Integer.toString(getMaxRxSize(this)/1024));
+        
+        prefText = (EditTextPreference)findPreference(PREF_TEST_COUNT);
+        prefText.setSummary(Integer.toString(getTestCount(this)));
+        
+        prefText = (EditTextPreference)findPreference(PREF_TEST_PAYLOAD_SIZE);
+        prefText.setSummary(Integer.toString(getTestPayloadSize(this)/1024));
     }
    
     
     public static String getServerURI(Activity ctx) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(ctx);
-    	return prefs.getString(PREF_SERVER_URI, "").trim();
+        return prefs.getString(PREF_SERVER_URI, "").trim();
     }
    
     public static int getConnTimeout(Activity ctx) {
