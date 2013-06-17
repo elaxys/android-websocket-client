@@ -207,9 +207,34 @@ public class Client {
         int     mHeadsize;
         byte[]  mFrame;
     }
-  
+
+    /**
+     * Type for error events
+     */
+    private static class ErrorEvent {
+    	int		mCode;
+    	String	mMsg;
+    	
+    	public ErrorEvent(int code, String msg) {
+    		mCode = code;
+    		mMsg  = msg;
+    	}
+    }
+
+    
     /** Client Version String */
     public static final String VERSION = "0.9.0";
+    
+    /** Connection error */
+    public static final int E_CONNECT	= 1;
+    /** SSL error */
+    public static final int E_SSL    	= 2;
+    /** Input/Output error */
+    public static final int E_IO		= 3;
+    /** Server handshake error */
+    public static final int E_HANDSHAKE = 4;
+    /** WebSocket protocol error */
+    public static final int E_PROTOCOL	= 5;
     
     /** Client is stopped */
     public static final int ST_STOPPED      = 0;
