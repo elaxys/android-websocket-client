@@ -83,8 +83,9 @@ Web Socket Client usage
   be used. These methods are also non-blocking and returns immediately
   after inserting the message fragment in the transmission queue.
 
-- When a message is received from the server, the listener ***onClientRecv()***
-  method is called. There is one version of this method for TEXT messages and
+- When a message or fragmented frame is received from the server,
+  the listener ***onClientRecv()*** method is called.
+  There is one version of this method for TEXT messages and
   another for BINARY and CONTROL messages.
   These methods inform the type of the message received using the constants:
   ```F_TEXT, F_BINARY, F_PING, F_PONG, F_TEXT_FIRST, F_TEXT_NEXT, F_TEXT_LAST,

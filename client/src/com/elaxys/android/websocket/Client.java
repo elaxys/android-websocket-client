@@ -299,8 +299,6 @@ public class Client {
     
     // WebSocket Frame
     private static final int LENGTH1        = 126;
-    private static final int LENGTH2        = 127;
-    
     private static final int MASK_FIN       = 0x80;
     private static final int MASK_RSV       = 0x70;
     private static final int MASK_OP        = 0x0F;
@@ -502,7 +500,7 @@ public class Client {
   
     /**
      * Inserts PING frame in transmission queue
-     * @param data Byte array with PAYLOAD (up to 125 bytes)
+     * @param payload Byte array with PAYLOAD (up to 125 bytes)
      * @return frame id or null if queue is full.
      * @throws Error 
      */
@@ -530,34 +528,34 @@ public class Client {
    
     /**
      * Insert first fragment of TEXT message in transmission queue
-     * @param data String with frame PAYLOAD
+     * @param payload String with frame PAYLOAD
      * @return frame id or null if queue is full.
      * @throws Error
      */
-    public Integer sendFirst(String data) throws Error {
-        return sendFrame(OP_TEXT, FRAG_FIRST, encodeString(data));
+    public Integer sendFirst(String payload) throws Error {
+        return sendFrame(OP_TEXT, FRAG_FIRST, encodeString(payload));
     }
  
     
     /**
      * Inserts next fragment of TEXT message in transmission queue
-     * @param data String with frame PAYLOAD
+     * @param payload String with frame PAYLOAD
      * @return frame id or null if queue is full.
      * @throws Error
      */
-    public Integer sendNext(String data) throws Error {
-        return sendFrame(OP_TEXT, FRAG_NEXT, encodeString(data));
+    public Integer sendNext(String payload) throws Error {
+        return sendFrame(OP_TEXT, FRAG_NEXT, encodeString(payload));
     }
 
     
     /**
      * Inserts last fragment of TEXT message in transmission queue
-     * @param data String with frame PAYLOAD
+     * @param payload String with frame PAYLOAD
      * @return frame id or null if queue is full.
      * @throws ErrorInternal 
      */
-    public Integer sendLast(String data) throws Error {
-        return sendFrame(OP_TEXT, FRAG_LAST, encodeString(data));
+    public Integer sendLast(String payload) throws Error {
+        return sendFrame(OP_TEXT, FRAG_LAST, encodeString(payload));
     }
 
     
@@ -585,15 +583,21 @@ public class Client {
     
     /**
      * Inserts last fragment of BINARY message in transmission queue
-     * @param data Byte array with frame PAYLOAD
+     * @param payload Byte array with frame PAYLOAD
      * @return frame id or null if queue is full.
      * @throws Error 
      */
     public Integer sendLast(byte[] payload) throws Error {
         return sendFrame(OP_BINARY, FRAG_LAST, payload);
     }
-    
    
+   
+    
+    /**************************************************************************
+     * Start of Private Methods
+     */
+  
+    
     /**
      * Stops reception thread
      */
