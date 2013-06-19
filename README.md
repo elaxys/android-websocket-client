@@ -74,7 +74,8 @@ Web Socket Client usage
   The method returns the ID of the message or null if the transmission
   queue is full. When the message is sent (inserted into the operating
   system network buffer) the listener method ***onClientSent()*** is
-  called. Messages can be inserted in the transmission queue even
+  called informing the ID of the message sent.
+  Messages can be inserted in the transmission queue even
   if the client is not started or connected yet.
 
 - To send TEXT or BINARY fragmented messages to the server 
@@ -193,7 +194,7 @@ functionality. To install the test application using Eclipse:
   The default name of this project is **websocket_client**.
 2. Import the test application project using
   ***File/Import/Android/Existing Android Code into Workspace***.
-  After it is imported you should inform Eclipse that this projects depends on the WebSocket
+  After it is imported it is necessary to inform Eclipse that this projects depends on the WebSocket
   client library. Right-click on the ***websocket_client_test*** project in ***Package Explorer***,
   select ***Properties***, select **Android** category and then adds a reference to **websocket_client**
   in the **Library** list.
@@ -205,7 +206,9 @@ using ***ant debug*** command inside the application directory
    system and install the required modules.
    A **bash** script in the server directory installs the modules locally using ***npm***.
    The server can be started through the command line using:
-   ***>./server.js***
+   ```
+   >./server.js
+   ```
    This will start the server using the default parameters (port=10000, no SSL).
    Pass the ***--help*** option to see the server command line parameters.
 
@@ -217,6 +220,8 @@ top area of the screen and a menu with test commands and options.
 The panel shows in the first line the current status
 of the client and the following lines can show the last error
 or the communication statistics.
+
+[[app_menu.png]]
 
 The test application can be configured through is ***Preferences***
 options which presents the following configurations,
@@ -261,7 +266,6 @@ The test application menu options are:
   and updates the top panel.
 - ***Clear TxQueue*** - Clear the client transmission queue.
 - ***Preferences*** - The preferences screen describe previously.
-
 
 
 
