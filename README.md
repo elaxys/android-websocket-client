@@ -57,21 +57,21 @@ Web Socket Client usage
   a configuration object and a listener to receive the
   events. Then the client should be started.
   After the client is started it will try to connect
-  with server, using the URI specified in the configuration.
-  If an error occurs, it will wait ***config.mRetryInterval***
-  milliseconds and then try again indefinitely until is
-  stopped by ***client.stop()***.
+  with server using the URI specified in the configuration.
+  If any error occurs, the listener ***onClientError()***
+  method is called, the client will wait ***config.mRetryInterval***
+  milliseconds and then will try to connect again.
+  This process continues indefinitely until the client
+  is stopped by calling ***client.stop()***.
 
-- When the connection with the server succeeds the Listener
-  ***onClientConnected()*** method will be called, otherwise,
-  on any errors ***onClientError()*** is called and the client
-  continues retrying.
+- When the connection and handshake with the server succeeds
+  the listener ***onClientConnected()*** method is called.
 
 - To send TEXT or BINARY messages to the server the method
   ***client.send(msg)*** should be used.
   This method is non-blocking and returns immediately after it inserts
   the message into the transmission queue.
-  The method returns the ID of the message or null if the transmission
+  The method returns an integer with ID of the message or null if the transmission
   queue is full. When the message is sent (inserted into the operating
   system network buffer) the listener method ***onClientSent()*** is
   called informing the ID of the message sent.
@@ -221,7 +221,7 @@ The panel shows in the first line the current status
 of the client and the following lines can show the last error
 or the communication statistics.
 
-[app_menu.png](/app_menu.png)
+![app_menu.png](/app_menu.png)
 
 The test application can be configured through is ***Preferences***
 options which presents the following configurations,
