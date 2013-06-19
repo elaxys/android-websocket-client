@@ -60,6 +60,11 @@ function main() {
             response.end();
         });
     }   
+    hServer.on('error', function(err) {
+        log('%s', err);
+        process.exit(0)
+    });
+
     // Starts server
     hServer.listen(argv.p, function() {
         log('Server is listening on port: %d %s', argv.p, msg_ssl);

@@ -11,7 +11,7 @@ Project Contents
 ----------------
 - **client** directory is the Android Library project for the WebSocket client.
 - **test_app** directory is an Android Application project which contains the test application.
-- **test_node_server** directory contains a simple Node.js WebSocket server using the
+- **test_node_server** directory contains a simple ***Node.js*** WebSocket server using the
   great Worlizer [websocket server module](https://github.com/Worlize/WebSocket-Node.git).
   This server is used for testing only.
 
@@ -21,19 +21,19 @@ Installation
 To use the WebSocket client in your project using Eclipse
 you need to import the library into your workspace using
 ***File/Import/Android/Existing Android Code into Workspace***.
-The default name of this project is **websocket_client**.
+The default name of this project is ***websocket_client***.
 
 Then you should inform Eclipse that your project depends on the WebSocliet client library.
 Right-click on your project in ***Package Explorer***, select ***Properties***,
-select **Android** category and then adds a reference to **websocket_client**
-in the **Library** list.
+select ***Android*** category and then adds a reference to ***websocket_client***
+in the ***Library*** list.
 
 
 Architecture
 ------------
 This WebSocket client uses two threads, a handler and a transmission queue.
 When the client is instantiated an Android handler is created associated with
-the caller thread. This handler is used to send events to the caller thread
+the caller's thread. This handler is used to send events to the caller's thread
 through its listener.
 
 The reception thread is responsible for connection with the
@@ -53,37 +53,36 @@ identifying the message which was sent
 
 Web Socket Client usage
 -----------------------
-
 - To create a new WebSocket client it is necessary to pass
   a configuration object and a listener to receive the
   events. Then the client should be started.
   After the client is started it will try to connect
   with server, using the URI specified in the configuration.
-  If an error occurs, it will wait **config.mRetryInterval**
+  If an error occurs, it will wait ***config.mRetryInterval***
   milliseconds and then try again indefinitely until is
-  stopped by **client.stop()**.
+  stopped by ***client.stop()***.
 
 - When the connection with the server succeeds the Listener
-  **onClienteConnected()** method will be called, otherwise,
-  on any errors **onClientError()** is called and the client
+  ***onClientConnected()*** method will be called, otherwise,
+  on any errors ***onClientError()*** is called and the client
   continues retrying.
 
 - To send TEXT or BINARY messages to the server the method
   ***client.send(msg)*** should be used.
-  This method is non-blocking and returns
-  immediately after it inserts the message into the transmission queue.
+  This method is non-blocking and returns immediately after it inserts
+  the message into the transmission queue.
   The method returns the ID of the message or null if the transmission
   queue is full. When the message is sent (inserted into the operating
-  system network buffer) the listener method **onClientSent()** is
-  called. The messages are inserted in the transmission queue even
+  system network buffer) the listener method ***onClientSent()*** is
+  called. Messages can be inserted in the transmission queue even
   if the client is not started or connected yet.
 
 - To send TEXT or BINARY fragmented messages to the server 
-  the methods **sendFirst()**, **sendNext()** and **sendLast()** should
+  the methods ***sendFirst()***, ***sendNext()*** and ***sendLast()*** should
   be used. These methods are also non-blocking and returns immediately
   after inserting the message fragment in the transmission queue.
 
-- When a message is received from the server, the listener **onClientRecv()**
+- When a message is received from the server, the listener ***onClientRecv()***
   method is called. This method informs the type of the message received using
   the constants (```F_TEXT, F_TEXT_FIRST```, etc.) and its payload.
 
@@ -147,7 +146,8 @@ Web Socket Client usage
 
     }
 
-    // Starts the client
+    // Clear the transmission queue and starts the client
+    client.clearTx();
     client.start();
 
     // Sends TEXT message
@@ -166,15 +166,27 @@ Web Socket Client usage
     client.sendNext(new byte[]{3,4});
     client.sendLast(new byte[]{5});
 
+    // Getting the client status
+    int status = client.getStatus();
+    if (status == ST_CONNECTED) {
+        ;
+    }
+
+    // Getting communication statistics
+    Stats stats = new Stats();
+    client.getStats(stats);
+    Log.d("Number of frames sent: " + stats.mTxFrames);
+
+    // Stops the client and clears transmission queue
+    client.stop();
 
 ```
 
 
 Installation of the test application
 ------------------------------------
-
 The test application and server allow testing most of the client
-functionality.  To install the test application using Eclipse:
+functionality. To install the test application using Eclipse:
 
 1. Import the WebSocket client library project using
   ***File/Import/Android/Existing Android Code into Workspace***.
@@ -189,10 +201,66 @@ functionality.  To install the test application using Eclipse:
 If you use command line tools the test application can be built
 using ***ant debug*** command inside the application directory
 
-3. To run the test server it is necessary to have Node.js installed in your
-   system. Then it is necessary to install the required modules.
-   A **bash** script in the server directory installs the modules locally
-   using Node.js **NPM**.
+3. To run the test server it is necessary to have ***Node.js*** installed in your
+   system and install the required modules.
+   A **bash** script in the server directory installs the modules locally using ***npm***.
+   The server can be started through the command line using:
+   ***>./server.js***
+   This will start the server using the default parameters (port=10000, no SSL).
+   Pass the ***--help*** option to see the server command line parameters.
+
+
+Running the test application
+----------------------------
+The test application when executed shows a panel in the
+top area of the screen and a menu with test commands and options.
+The panel shows in the first line the current status
+of the client and the following lines can show the last error
+or the communication statistics.
+
+The test application can be configured through is ***Preferences***
+options which presents the following configurations,
+which are basically the WebClient configuration options.
+
+- ***Server URI*** - String with the server URI to connect to.
+- ***Connection Timeout*** - Connection timeout in milliseconds.
+- ***Retry Interval*** - Retry interval in milliseconds after any error.
+- ***Max Receive Size*** - The maximum size of received frame from the server in KBytes.
+- ***Respond to Ping*** - If checks sends PONG to server if a PING is received,
+  otherwise sends the PING to the application.
+- ***Check Server CERT*** - When connection through SSL checks the validity of the
+  server certificate. Should be unchecked for testing with a self-signed server
+  certificate.
+- ***Test Count*** - Number of time to execute each test option.
+- ***Max Paylod Size*** - Maximum payload size in KBytes when generating
+  random data for the tests.
+
+
+The test application menu options are:
+- ***Start*** - Starts the client if not already started.
+- ***Stop*** - Stops the client if not already stopped.
+- ***Ping Test*** - Sends ***Test Count*** pings to the server
+  and checks the PONG responses.
+- ***String Test*** - Sends ***Test Count*** TEXT messages to
+  the server with random data up to ***Max Payload Size*** and
+  compares the response received from the server.
+- ***Binary Test*** - Sends ***Test Count*** BINARY messages to
+  the server with random data up to ***Max Payload Size*** and
+  compares the response received from the server.
+- ***String Frag Test*** - Generates random string with up to
+  ***Max Payload Size***, divides this string in 5 fragments
+  and send them. Compare the original string with the
+  concatenated server response from the server.
+  Repeat this ***Test Count*** times.
+- ***Binary Frag Test*** - Generates random bytes with up to
+  ***Max Payload Size***, divides this byte array in 5 fragments
+  and send them. Compare the original byte array with the
+  concatenated response from the server.
+  Repeat this ***Test Count*** times.
+- ***Clear Stats*** - Clear the client communcation statistics
+  and updates the top panel.
+- ***Clear TxQueue*** - Clear the client transmission queue.
+- ***Preferences*** - The preferences screen describe previously.
 
 
 
