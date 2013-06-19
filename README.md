@@ -12,7 +12,7 @@ Project Contents
 - ***client*** directory is the Android Library project for the WebSocket client.
 - ***test_app*** directory is an Android Application project which contains the test application.
 - ***test_node_server*** directory contains a simple ***Node.js*** WebSocket server using the
-  great Worlizer [websocket server module](https://github.com/Worlize/WebSocket-Node.git).
+  great *Worlizer* [websocket server module](https://github.com/Worlize/WebSocket-Node.git).
   This server is used for testing only.
 
 
@@ -84,9 +84,11 @@ Web Socket Client usage
   after inserting the message fragment in the transmission queue.
 
 - When a message is received from the server, the listener ***onClientRecv()***
-  method is called. This method informs the type of the message received using
-  the constants (```F_TEXT, F_TEXT_FIRST```, etc.) and its payload.
-
+  method is called. There is one version of this method for TEXT messages and
+  another for BINARY and CONTROL messages.
+  These methods inform the type of the message received using the constants:
+  ```F_TEXT, F_BINARY, F_PING, F_PONG, F_TEXT_FIRST, F_TEXT_NEXT, F_TEXT_LAST,
+  F_BINARY_FIRST, F_BINARY_NEXT, F_BINARY_LAST```.
 
 ```
     // API usage example
@@ -168,7 +170,10 @@ Web Socket Client usage
     client.sendLast(new byte[]{5});
 
     // Sends PING to server
-    client.sendPing(new byte[]);
+    client.ping(new byte[0]);
+
+    // Sends PONG to server
+    client.ping(new byte[0]);
 
     // Getting the client status
     int status = client.getStatus();
@@ -214,6 +219,8 @@ using ***ant debug*** command inside the application directory
    ```
    This will start the server using the default parameters (port=10000, no SSL).
    Pass the ***--help*** option to see the server command line parameters.
+   The server is configured to echo back TEXT and BINARY messages and also to
+   receive fragmented messages and sends back the concatenated message.
 
 
 Running the test application
@@ -224,13 +231,13 @@ The panel shows in the first line the current status
 of the client and the following lines can show the last error
 or the communication statistics.
 
-The TX line indicates:
+The TX statistics line contains:
 - Number of transmitted frames
 - Number of bytes sent
 - Number of payload bytes sent
 - Number of frames in transmission queue
 
-The RX line indicates:
+The RX statistics line contains:
 - Number of received frames
 - Number of bytes received
 - Number of payload bytes received
@@ -238,7 +245,7 @@ The RX line indicates:
 ![app_menu.png](/app_menu.png)
 
 The test application can be configured through is ***Preferences***
-options which presents the following configurations,
+screen which presents the following configurations,
 which are basically the WebClient configuration options.
 
 - ***Server URI*** - String with the server URI to connect to.
@@ -280,7 +287,6 @@ The test application menu options are:
 - ***Clear Stats*** - Clear the client communication statistics
   and updates the top panel.
 - ***Clear TxQueue*** - Clear the client transmission queue.
-- ***Preferences*** - The preferences screen describe previously.
-
+- ***Preferences*** - The preferences screen described previously.
 
 
