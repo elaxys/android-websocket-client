@@ -221,7 +221,7 @@ The panel shows in the first line the current status
 of the client and the following lines can show the last error
 or the communication statistics.
 
-[[app_menu.png]]
+[app_menu.png](/app_menu.png)
 
 The test application can be configured through is ***Preferences***
 options which presents the following configurations,
