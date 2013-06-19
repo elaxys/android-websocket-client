@@ -104,9 +104,10 @@ public class Client {
         /**
          * Called when any error occurs, including the closing of
          * the connection.
+         * @param code Error type
          * @param msg Error message
          */
-        public void onClientError(String msg);
+        public void onClientError(int code, String msg);
         /**
          * Called when a BINARY frame is received from the server
          * @param type Frame type. Possible values are F_BINARY* and F_PING
@@ -235,6 +236,8 @@ public class Client {
     public static final int E_HANDSHAKE = 4;
     /** WebSocket protocol error */
     public static final int E_PROTOCOL	= 5;
+    /** Connection closed by  Server */
+    public static final int E_CLOSED    = 6;
     
     /** Client is stopped */
     public static final int ST_STOPPED      = 0;
@@ -708,7 +711,6 @@ public class Client {
                 else {
                     SSLContext sctx = createSSLContext();
                     if (sctx == null) {
-                        mLog.error("RxThread creating SSLContext");
                         return false;
                     }
                     SocketFactory socketFactory = sctx.getSocketFactory();
@@ -721,11 +723,11 @@ public class Client {
                 mSocketIn  = new BufferedInputStream(mSocket.getInputStream(), 8*1024);
                 mSocketOut = mSocket.getOutputStream();
             } catch (UnknownHostException e) {
-                sendEvent(EV_ERROR, e.getMessage());
+                sendEvent(EV_ERROR, new ErrorEvent(E_CONNECT, e.getMessage()));
                 return false;
             } catch (IOException e) {
                 mLog.error("RxThread ERROR: IOException: %s", e.getMessage());
-                sendEvent(EV_ERROR, e.getMessage());
+                sendEvent(EV_ERROR, new ErrorEvent(E_CONNECT, e.getMessage()));
                 return false;
             }
             mLog.debug("RxThread connected OK");
@@ -757,14 +759,14 @@ public class Client {
             try {
                 mSocketOut.write(data);
             } catch (IOException e) {
-                sendEvent(EV_ERROR, e.getMessage());
+                sendEvent(EV_ERROR, new ErrorEvent(E_IO, e.getMessage()));
                 return false;
             }
             // Sets socket timeout to wait for handshake
             try {
                 mSocket.setSoTimeout(HANDSHAKE_TIMEOUT);
             } catch (SocketException e) {
-                sendEvent(EV_ERROR, e.getMessage());
+                sendEvent(EV_ERROR, new ErrorEvent(E_IO, e.getMessage()));
                 return false;
             }
             // Reads response lines from server
@@ -785,13 +787,14 @@ public class Client {
                 }
             }
             if (nlines < 1) {
-                sendEvent(EV_ERROR, "Empty response from server");
+                sendEvent(EV_ERROR, new ErrorEvent(E_HANDSHAKE, "Empty response from server"));
                 return false;
             }
             // Parses status line
             StatusLine status = BasicLineParser.parseStatusLine(Responses[0], new BasicLineParser());
             if (status.getStatusCode() != HttpStatus.SC_SWITCHING_PROTOCOLS) {
-                sendEvent(EV_ERROR, String.format("Server response status: %d", status.getStatusCode()));
+                sendEvent(EV_ERROR, new ErrorEvent(E_HANDSHAKE,
+                		String.format("Server response status: %d", status.getStatusCode())));
                 return false;
             }
             // Parse headers
@@ -802,21 +805,21 @@ public class Client {
                     String accept = header.getValue();
                     String calc = calcAccept(seckey);
                     if (!accept.equals(calc)) {
-                        sendEvent(EV_ERROR, "Server accept key is invalid");
+                        sendEvent(EV_ERROR, new ErrorEvent(E_HANDSHAKE, "Server accept key is invalid"));
                         return false;
                     }
                     found = true;
                 }
             }
             if (!found) {
-                sendEvent(EV_ERROR, "Server accept header not found");
+                sendEvent(EV_ERROR, new ErrorEvent(E_HANDSHAKE, "Server accept header not found"));
                 return false;
             }
             // Remove socket timeout
             try {
                 mSocket.setSoTimeout(0);
             } catch (SocketException e) {
-                sendEvent(EV_ERROR, e.getMessage());
+                sendEvent(EV_ERROR, new ErrorEvent(E_IO, e.getMessage()));
                 return false;
             }
             mLog.debug("Handshake OK");
@@ -836,14 +839,13 @@ public class Client {
                 try {
                     payload = readFrame();
                 } catch (IOException e) {
-                    sendEvent(EV_ERROR, e.getMessage());
+                    sendEvent(EV_ERROR, new ErrorEvent(E_IO, e.getMessage()));
                     return;
                 }
                 // Update statistics
                 mStats.mRxFrames++;
                 mStats.mRxData += payload.length;
                 mStats.mRxBytes += (mHeadSize + payload.length);
-                mLog.debug("Rx frame: %x", mOpcode);
                 // Prepare message to send to Handler
                 RxMsg m = new RxMsg();
                 m.mBytes = payload;
@@ -871,11 +873,13 @@ public class Client {
                         }
                         break;
                     }
-                    sendEvent(EV_ERROR, "Received Unexpected OP_CONT Frame");
+                    sendEvent(EV_ERROR, new ErrorEvent(E_PROTOCOL,
+                    		"Received Unexpected OP_CONT Frame"));
                     return;
                 case OP_TEXT:
                     if (mContinuation >= 0) {
-                        sendEvent(EV_ERROR, "Received OP_TEXT Frame instead of fragment");
+                        sendEvent(EV_ERROR, new ErrorEvent(E_PROTOCOL,
+                        		"Received OP_TEXT Frame instead of fragment"));
                         return;
                     }
                     text = true;
@@ -889,7 +893,8 @@ public class Client {
                     break;
                 case OP_BINARY:
                     if (mContinuation >= 0) {
-                        sendEvent(EV_ERROR, "Received OP_BINARY Frame instead of fragment");
+                        sendEvent(EV_ERROR, new ErrorEvent(E_PROTOCOL,
+                        		"Received OP_BINARY Frame instead of fragment"));
                         return;
                     }
                     if (mFIN) {
@@ -904,11 +909,12 @@ public class Client {
                     // Echo CLOSE frame to server
                     // The client will stop by transmission thread after this frame was sent.
                     sendFrame(OP_CLOSE, FRAG_NONE, payload);
-                    sendEvent(EV_ERROR, "Closed by Server");
+                    sendEvent(EV_ERROR, new ErrorEvent(E_CLOSED, "Closed by Server"));
                     break;
                 case OP_PING:
                     if (payload.length >= LENGTH1) {
-                        sendEvent(EV_ERROR, "Received PING with payload >=" + LENGTH1) ;
+                        sendEvent(EV_ERROR, new ErrorEvent(E_PROTOCOL,
+                        		"Received PING with payload >=" + LENGTH1));
                         return;
                     }
                     // Sends PONG if configured to do so.
@@ -921,7 +927,7 @@ public class Client {
                     break;
                 case OP_PONG:
                     if (payload.length >= LENGTH1) {
-                        sendEvent(EV_ERROR, "Received PONG with payload >=" + LENGTH1) ;
+                        sendEvent(EV_ERROR, new ErrorEvent(E_PROTOCOL, "Received PONG with payload >=" + LENGTH1));
                         return;
                     }
                     m.mType = F_PONG;
@@ -932,7 +938,7 @@ public class Client {
                     try {
                         m.mText = decodeString(payload);
                     } catch (ErrorInternal e) {
-                        sendEvent(EV_ERROR, e.getMessage());
+                        sendEvent(EV_ERROR, new ErrorEvent(E_PROTOCOL, e.getMessage()));
                         return;
                     }
                 }
@@ -1205,7 +1211,7 @@ public class Client {
         try {
             context = SSLContext.getInstance("TLS");
         } catch (NoSuchAlgorithmException e) {
-            sendEvent(EV_ERROR, e.getMessage());
+            sendEvent(EV_ERROR, new ErrorEvent(E_SSL, e.getMessage()));
             return null;
         }
         TrustManager[] trustManagers;
@@ -1224,7 +1230,7 @@ public class Client {
         try {
             context.init(null, trustManagers, new SecureRandom());
         } catch (KeyManagementException e) {
-            sendEvent(EV_ERROR, e.getMessage());
+            sendEvent(EV_ERROR, new ErrorEvent(E_SSL, e.getMessage()));
         }
         return context;
     }
@@ -1345,14 +1351,14 @@ public class Client {
             try {
                 readChar = stream.read();
             } catch (SocketTimeoutException e) {
-                sendEvent(EV_ERROR, "Reception Timeout");
+                sendEvent(EV_ERROR, new ErrorEvent(E_IO, "Reception Timeout"));
                 return null;
             } catch (IOException e) {
-                sendEvent(EV_ERROR, e.getMessage());
+                sendEvent(EV_ERROR, new ErrorEvent(E_IO, e.getMessage()));
                 return null;
             }
             if (readChar == -1) {
-                sendEvent(EV_ERROR, "Connection Closed");
+                sendEvent(EV_ERROR, new ErrorEvent(E_CLOSED, "Connection Closed"));
                 return null;
             }
             if (readChar == '\r') {
@@ -1362,7 +1368,7 @@ public class Client {
                 return line.toString();
             }
             if (len >= MAX_HEADER_LINE) {
-                sendEvent(EV_ERROR, "Max header line recv");
+                sendEvent(EV_ERROR, new ErrorEvent(E_PROTOCOL, "Max header line recv"));
                 return null;
             }
             line.append((char)readChar);
@@ -1379,7 +1385,8 @@ public class Client {
     private void sendEvent(int what, Object obj) {
   
         if (what == EV_ERROR) {
-            mLog.error((String)obj);
+        	ErrorEvent ee = (ErrorEvent)obj;
+            mLog.error("Error: %d:%s", ee.mCode, ee.mMsg);
         }
         mHandler.sendMessage(mHandler.obtainMessage(what, obj));
     }
@@ -1422,7 +1429,8 @@ public class Client {
                 mListener.onClientSent(tx.mID);
                 break;
             case EV_ERROR:
-                mListener.onClientError((String)msg.obj);
+            	ErrorEvent ee = (ErrorEvent)msg.obj;
+                mListener.onClientError(ee.mCode, ee.mMsg);
                 break;
             case EV_STOP:
                 mListener.onClientStop();

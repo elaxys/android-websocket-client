@@ -410,8 +410,8 @@ public class MainActivity extends ListActivity implements
 
 
     @Override
-    public void onClientError(String msg) {
-        mStatusText.setText("ERROR");
+    public void onClientError(int code, String msg) {
+        mStatusText.setText(String.format("ERROR (%d)", code));
         mStatusDetail.setText(msg);
     }
 
