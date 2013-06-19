@@ -9,9 +9,9 @@ The project includes an application and a server for testing.
 
 Project Contents
 ----------------
-- **client** directory is the Android Library project for the WebSocket client.
-- **test_app** directory is an Android Application project which contains the test application.
-- **test_node_server** directory contains a simple ***Node.js*** WebSocket server using the
+- ***client*** directory is the Android Library project for the WebSocket client.
+- ***test_app*** directory is an Android Application project which contains the test application.
+- ***test_node_server*** directory contains a simple ***Node.js*** WebSocket server using the
   great Worlizer [websocket server module](https://github.com/Worlize/WebSocket-Node.git).
   This server is used for testing only.
 
@@ -46,9 +46,9 @@ queue waiting for messages to send.
 When a message is inserted in the transmission queue,
 the transmission thread will remove it
 and try to send it through the connected socket.
-After the message is sent (inserted into the operation
+After the message is sent (inserted into the operating
 system network buffer) it generates an event for the listener,
-identifying the message which was sent
+identifying the message which was sent.
 
 
 Web Socket Client usage
@@ -57,21 +57,21 @@ Web Socket Client usage
   a configuration object and a listener to receive the
   events. Then the client should be started.
   After the client is started it will try to connect
-  with server using the URI specified in the configuration.
+  with the server using the URI specified in the configuration.
   If any error occurs, the listener ***onClientError()***
   method is called, the client will wait ***config.mRetryInterval***
   milliseconds and then will try to connect again.
   This process continues indefinitely until the client
-  is stopped by calling ***client.stop()***.
+  is stopped by calling its ***stop()*** method.
 
 - When the connection and handshake with the server succeeds
   the listener ***onClientConnected()*** method is called.
 
-- To send TEXT or BINARY messages to the server the method
-  ***client.send(msg)*** should be used.
+- To send TEXT or BINARY messages to the server the
+  ***send(msg)*** method should be used.
   This method is non-blocking and returns immediately after it inserts
   the message into the transmission queue.
-  The method returns an integer with ID of the message or null if the transmission
+  The method returns an integer with the ID of the message or null if the transmission
   queue is full. When the message is sent (inserted into the operating
   system network buffer) the listener method ***onClientSent()*** is
   called informing the ID of the message sent.
@@ -167,6 +167,9 @@ Web Socket Client usage
     client.sendNext(new byte[]{3,4});
     client.sendLast(new byte[]{5});
 
+    // Sends PING to server
+    client.sendPing(new byte[]);
+
     // Getting the client status
     int status = client.getStatus();
     if (status == ST_CONNECTED) {
@@ -178,7 +181,7 @@ Web Socket Client usage
     client.getStats(stats);
     Log.d("Number of frames sent: " + stats.mTxFrames);
 
-    // Stops the client and clears transmission queue
+    // Stops the client
     client.stop();
 
 ```
@@ -191,7 +194,7 @@ functionality. To install the test application using Eclipse:
 
 1. Import the WebSocket client library project using
   ***File/Import/Android/Existing Android Code into Workspace***.
-  The default name of this project is **websocket_client**.
+  The default name of this project is ***websocket_client***.
 2. Import the test application project using
   ***File/Import/Android/Existing Android Code into Workspace***.
   After it is imported it is necessary to inform Eclipse that this projects depends on the WebSocket
@@ -216,10 +219,21 @@ using ***ant debug*** command inside the application directory
 Running the test application
 ----------------------------
 The test application when executed shows a panel in the
-top area of the screen and a menu with test commands and options.
+top area of the screen and a menu with test commands.
 The panel shows in the first line the current status
 of the client and the following lines can show the last error
 or the communication statistics.
+
+The TX line indicates:
+- Number of transmitted frames
+- Number of bytes sent
+- Number of payload bytes sent
+- Number of frames in transmission queue
+
+The RX line indicates:
+- Number of received frames
+- Number of bytes received
+- Number of payload bytes received
 
 ![app_menu.png](/app_menu.png)
 
@@ -230,15 +244,16 @@ which are basically the WebClient configuration options.
 - ***Server URI*** - String with the server URI to connect to.
 - ***Connection Timeout*** - Connection timeout in milliseconds.
 - ***Retry Interval*** - Retry interval in milliseconds after any error.
-- ***Max Receive Size*** - The maximum size of received frame from the server in KBytes.
-- ***Respond to Ping*** - If checks sends PONG to server if a PING is received,
+- ***Max Receive Size*** - The maximum size of received frames from the server in KBytes.
+  Frames with payload size greater than this are rejected.
+- ***Respond to Ping*** - If checked sends PONG to server if a PING is received,
   otherwise sends the PING to the application.
-- ***Check Server CERT*** - When connection through SSL checks the validity of the
-  server certificate. Should be unchecked for testing with a self-signed server
-  certificate.
-- ***Test Count*** - Number of time to execute each test option.
-- ***Max Paylod Size*** - Maximum payload size in KBytes when generating
-  random data for the tests.
+- ***Check Server CERT*** - When connecting using SSL checks the validity of the
+  server certificate. Should be unchecked only for testing with a self-signed server
+  certificate (such as the test server).
+- ***Test Count*** - Number of times to execute each test option.
+- ***Max Payload Size*** - Maximum payload size in KBytes when generating
+  random strings or bytes for the tests.
 
 
 The test application menu options are:
@@ -262,7 +277,7 @@ The test application menu options are:
   and send them. Compare the original byte array with the
   concatenated response from the server.
   Repeat this ***Test Count*** times.
-- ***Clear Stats*** - Clear the client communcation statistics
+- ***Clear Stats*** - Clear the client communication statistics
   and updates the top panel.
 - ***Clear TxQueue*** - Clear the client transmission queue.
 - ***Preferences*** - The preferences screen describe previously.
