@@ -493,7 +493,7 @@ public class MainActivity extends ListActivity implements
     @Override
     public void onClientStop() {
         mStatusText.setText("STOPPED");
-        mSocket.clearTx();
+        updateStatus();
     }
     
     private void logDebug(String format, Object... args) {

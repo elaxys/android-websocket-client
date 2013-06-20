@@ -285,6 +285,7 @@ public class Client {
     private volatile int            mStatus;    
     private volatile boolean        mRxRun;
     private volatile boolean        mTxRun;
+    private volatile boolean        mStopping;
     private boolean                 mFIN;
     private boolean                 mMasked;
     private int                     mOpcode;
@@ -398,10 +399,13 @@ public class Client {
      * The client will try to connect to the server until stopped.
      */
     public void start() {
+        // If already started or connected, ignore.
         if (mStatus != ST_STOPPED) {
             return;
         }
         // Starts RxThread
+        mStatus = ST_STARTED;
+        mStopping = false;
         mRxRun = true;
         mRxThread = new RxThread();
         mRxThread.start();
@@ -410,24 +414,32 @@ public class Client {
     
     /**
      * Stops the client.
-     * After all messages in the transmission queue are sent,
-     * a CLOSE frame is sent to the server and the client is stopped.
+     * Clears the transmission queue and sends close frame to the server
      */
     public void stop() {
         // If already stopped, ignore.
-        if (mStatus == ST_STOPPED) {
+        if (mStatus == ST_STOPPED || mStopping) {
             return;
         }
-        // If connected, sends CLOSE frame.
-        // The transmission thread will stop the client after this frame is sent.
-        // We do not wait to receive the server CLOSE frame response.
-        if (mStatus == ST_CONNECTED) {
-            mRxRun = false;
-            sendFrame(OP_CLOSE, FRAG_NONE, new byte[0]);
-            return;
-        }
-        stopRxThread();
-        stopTxThread();
+        mLog.debug("STOP----------------");
+        mStopping = true;
+        Thread t = new Thread(new Runnable(){
+			@Override
+			public void run() {
+		        // If connected, sends CLOSE frame and waits interval
+				// to allow frame to be sent
+		        if (mStatus == ST_CONNECTED) {
+	        		mTxQueue.clear();
+		            sendFrame(OP_CLOSE, FRAG_NONE, new byte[0]);
+		            try {
+						Thread.sleep(100);
+					} catch (InterruptedException e) {}
+		        }
+		        stopTxThread();
+		        stopRxThread();
+			}
+       	});
+        t.start();
     }
    
     
@@ -646,7 +658,6 @@ public class Client {
         
         @Override
         public void run() {
-            mStatus = ST_STARTED;
             long delay   = 0;
             mLog.debug("RxThread started");
             sendEvent(EV_START, null);
@@ -677,10 +688,11 @@ public class Client {
                 sendEvent(EV_CONNECTED, null);
                 // Process received frames and returns on any error.
                 processFrames();
+                mStatus = ST_STARTED;
                 // Stops transmission thread
-                mLog.debug("Stopping TxThread");
                 mTxRun = false;
                 if (mTxThread != null) {
+                	mLog.debug("Stopping TxThread");
                     mTxThread.interrupt();
                 }
                 // Continue to retry
@@ -910,11 +922,19 @@ public class Client {
                     }
                     break;
                 case OP_CLOSE:
-                    // Echo CLOSE frame to server
-                    // The client will stop by transmission thread after this frame was sent.
-                    sendFrame(OP_CLOSE, FRAG_NONE, payload);
+                	mLog.debug("RxThread: OP_CLOSE from server");
+                	// If client is already stopping, this frame was a response from
+                	// a previous sent CLOSE frame.
+                	if (mStopping) {
+                		return;
+                	}
+                    // Stops client.
+                	// We should have sent a CLOSE response to the server but for
+                	// simplification we just shutdown the client.
                     sendEvent(EV_ERROR, new ErrorEvent(E_CLOSED, "Closed by Server"));
-                    break;
+                    stopTxThread();
+                    stopRxThread();
+                    return;
                 case OP_PING:
                     if (payload.length >= LENGTH1) {
                         sendEvent(EV_ERROR, new ErrorEvent(E_PROTOCOL,
@@ -1088,12 +1108,11 @@ public class Client {
                     mStats.mTxFrames++;
                     mStats.mTxBytes += txmsg.mFrame.length; 
                     mStats.mTxData  += (txmsg.mFrame.length - txmsg.mHeadsize);
-                    // If close frame sent, STOPS the client
-                    if (txmsg.mOpcode == OP_CLOSE) {
-                        stopRxThread();
-                        break;
-                    }
                     sendEvent(EV_SENT, txmsg);
+                    if (txmsg.mOpcode == OP_CLOSE) {
+                    	mLog.debug("TxThread: CLOSE sent");
+                    	break;
+                    }
                 } catch (IOException e) {
                     break;
                 }
@@ -1243,27 +1262,29 @@ public class Client {
     /**
      * Masks frame pay load
      * @param frame  Buffer with frame to mask
-     * @param pos    Position in the frame where the payload starts
+     * @param pos    Position in the frame where the pay load starts
      * @param mask   Byte array with mask
      */
     private static void maskPayload(byte[] frame, int pos, byte[] mask) {
         int idx;
-
-        for (idx = 0; idx < frame.length - pos; idx++) {
-            frame[pos + idx] = (byte)(frame[pos + idx] ^ mask[idx % 4]);
+        int len;
+        
+        len = frame.length - pos;
+        for (idx = 0; idx < len; idx++) {
+            frame[pos + idx] ^= (byte)(mask[idx % 4]);
         }
     }
    
    
     /**
      * Creates accept key string for handshake
-     * @return String with secret BASE64 encoded
+     * @return String with secret key BASE64 encoded
      */
     private String createSecKey() {
         
-        byte[] secret = new byte[16];
-        mRandom.nextBytes(secret);
-        return Base64.encodeToString(secret, Base64.DEFAULT).trim();
+        byte[] seckey = new byte[16];
+        mRandom.nextBytes(seckey);
+        return Base64.encodeToString(seckey, Base64.DEFAULT).trim();
     }
 
    
@@ -1355,7 +1376,7 @@ public class Client {
             try {
                 readChar = stream.read();
             } catch (SocketTimeoutException e) {
-                sendEvent(EV_ERROR, new ErrorEvent(E_IO, "Reception Timeout"));
+                sendEvent(EV_ERROR, new ErrorEvent(E_HANDSHAKE, "Handshake Timeout"));
                 return null;
             } catch (IOException e) {
                 sendEvent(EV_ERROR, new ErrorEvent(E_IO, e.getMessage()));
