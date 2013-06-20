@@ -340,6 +340,7 @@ public class Client {
     /** Handshake related */
     private static final int HANDSHAKE_TIMEOUT = 5000;
     private static final int MAX_HEADER_LINE   = 512;
+    private static final int MAX_HEADER_LINES  = 10;
  
     
     /**
@@ -421,7 +422,6 @@ public class Client {
         if (mStatus == ST_STOPPED || mStopping) {
             return;
         }
-        mLog.debug("STOP----------------");
         mStopping = true;
         Thread t = new Thread(new Runnable(){
 			@Override
@@ -759,7 +759,7 @@ public class Client {
             StringBuilder req;
             String seckey;
         
-            mLog.debug("Sending handshake request");
+            mLog.debug("RxThread: Sending handshake request");
             seckey = createSecKey();
             // Sends HTTP upgrade request
             req = new StringBuilder();
@@ -786,7 +786,7 @@ public class Client {
                 return false;
             }
             // Reads response lines from server
-            String[] Responses = new String[10];
+            String[] Responses = new String[MAX_HEADER_LINES];
             int nlines = 0;
             while (true) {
                 String line = readLine(mSocketIn);
@@ -838,7 +838,7 @@ public class Client {
                 sendEvent(EV_ERROR, new ErrorEvent(E_IO, e.getMessage()));
                 return false;
             }
-            mLog.debug("Handshake OK");
+            mLog.debug("RxThread: Handshake OK");
             return true;
         }
       
@@ -944,7 +944,7 @@ public class Client {
                     // Sends PONG if configured to do so.
                     if (mConfig.mRespondPing) { 
                         sendFrame(OP_PONG, FRAG_NONE, payload);
-                        mLog.debug("Sent PONG");
+                        mLog.debug("RxThread: Sent PONG");
                         continue;
                     }
                     m.mType = F_PING;
@@ -1019,7 +1019,7 @@ public class Client {
         // Reads mask + length byte
         mlen = mSocketIn.read();
         if (mlen < 0) {
-            mLog.debug("readLength EOF");
+            mLog.debug("RxThread: readLength EOF");
             throw new ErrorInternal("Connection Closed");
         }
         mMasked = (mlen & MASK_MASKED) == MASK_MASKED;
